@@ -34,10 +34,21 @@ pipeline {
                         docker stop apache-master || true
                         docker rm apache-master || true
                         
-                        # Start the new container with the website mounted
-                        docker run -d --name apache-master -p 82:82 -v "$(pwd)":/var/www/html apache-website:latest
+                        # Create a directory for website content
+                        mkdir -p website_content
                         
-                        echo "Website deployed and available at port 82"
+                        # Copy all website files to this directory
+                        cp -r * website_content/ || true
+                        
+                        # Start the new container with the website mounted
+                        docker run -d --name apache-master -p 82:80 -v "$(pwd)/website_content":/var/www/html apache-website:latest
+                        
+                        # Add an index.html file if it doesn't exist
+                        if [ ! -f website_content/index.html ]; then
+                            echo "<html><body><h1>Welcome to my website!</h1><p>This site is hosted on port 82</p></body></html>" > website_content/index.html
+                        fi
+                        
+                        echo "Website deployed and available at http://$(curl -s ifconfig.me):82"
                         '''
                     } else if (branchName == 'develop') {
                         echo "Building only (develop branch)"
