@@ -41,7 +41,7 @@ pipeline {
                         cp -r * website_content/ || true
                         
                         # Start the new container with the website mounted
-                        docker run -d --name apache-master -p 82:80 -v "$(pwd)/website_content":/var/www/html apache-website:latest
+                        docker run -d --name apache-master -p 80:80 -v "$(pwd)/website_content":/var/www/html apache-website:latest
                         
                         # Add an index.html file if it doesn't exist
                         if [ ! -f website_content/index.html ]; then
