@@ -1,52 +1,55 @@
 pipeline {
     agent any
     
-    parameters {
-        string(name: 'BRANCH', defaultValue: 'develop', description: 'Branch to build')
-        booleanParam(name: 'DEPLOY', defaultValue: false, description: 'Deploy to production')
-    }
-    
     stages {
         stage('Checkout') {
             steps {
-                checkout([$class: 'GitSCM', 
-                    branches: [[name: "*/${params.BRANCH}"]], 
-                    userRemoteConfigs: [[url: 'https://github.com/hshar/website.git']]])
+                // Checkout the code from GitHub
+                checkout scm
+                
+                // Print the current branch for debugging
+                sh 'echo "Building branch: $(git rev-parse --abbrev-ref HEAD)"'
             }
         }
         
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t xyz-company/website:${params.BRANCH} .'
+                // Create the Docker image with Apache
+                sh '''
+                docker build -t apache-website:latest -f Dockerfile .
+                '''
             }
         }
         
         stage('Deploy') {
-            when {
-                expression { return params.DEPLOY == true }
-            }
             steps {
-                // Deploy only if BRANCH is master and DEPLOY is true
-                sh '''
-                    # Stop and remove existing container if it exists
-                    docker stop website-container || true
-                    docker rm website-container || true
+                script {
+                    def branchName = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
                     
-                    # Run the container on port 82
-                    docker run -d --name website-container -p 82:80 xyz-company/website:${params.BRANCH}
-                    
-                    # Copy website files to the container
-                    docker cp ./ website-container:/var/www/html/
-                    
-                    echo "Website deployed successfully on port 82"
-                '''
+                    if (branchName == 'master') {
+                        echo "Deploying to production (master branch)"
+                        
+                        sh '''
+                        # Stop any existing master containers
+                        docker stop apache-master || true
+                        docker rm apache-master || true
+                        
+                        # Start the new container with the website mounted
+                        docker run -d --name apache-master -p 82:82 -v "$(pwd)":/var/www/html apache-website:latest
+                        
+                        echo "Website deployed and available at port 82"
+                        '''
+                    } else if (branchName == 'develop') {
+                        echo "Building only (develop branch)"
+                    }
+                }
             }
         }
     }
     
     post {
         success {
-            echo "Pipeline completed successfully!"
+            echo "Pipeline executed successfully!"
         }
         failure {
             echo "Pipeline failed!"
