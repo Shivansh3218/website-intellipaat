@@ -1,25 +1,25 @@
-FROM ubuntu:20.04
+# Use the specified pre-built container
+FROM hshar/webapp
 
-# Avoid prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
+# Set maintainer
+LABEL maintainer="devops@abodesoftware.com"
 
-# Install Apache and required packages
-RUN apt-get update && \
-    apt-get install -y apache2 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Ensure the Apache service starts properly
-RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
-
-# Remove default index.html
-RUN rm -f /var/www/html/index.html
-
-# Set the work directory
+# Set working directory where code should reside
 WORKDIR /var/www/html
 
-# Expose ports
+# Copy application files to the container
+COPY . /var/www/html/
+
+# Ensure proper permissions
+RUN chown -R www-data:www-data /var/www/html && \
+    chmod -R 755 /var/www/html
+
+# Expose port 80
 EXPOSE 80
 
-# Start Apache in the foreground
-CMD ["apache2ctl", "-D", "FOREGROUND"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost/ || exit 1
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
